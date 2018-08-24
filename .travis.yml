@@ -13,8 +13,9 @@ jdk:
   - openjdk8
 
 install:
-  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then gradle asemble; fi
-  #- gradle assemble
+  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew update; fi
+  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew install gradle; fi
+  - gradle assemble
 
 script:
   - gradle check
