@@ -12,9 +12,10 @@ jdk:
   - oraclejdk8
   - openjdk8
 
-install:
+before_install:
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew update; fi
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew install gradle; fi
+install:
   - gradle assemble
 
 script:
