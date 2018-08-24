@@ -13,7 +13,8 @@ jdk:
   - openjdk8
 
 install:
-  - gradle assemble
+  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then gradle asemble; fi
+  #- gradle assemble
 
 script:
   - gradle check
