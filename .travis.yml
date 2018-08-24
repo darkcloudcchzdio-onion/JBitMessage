@@ -11,5 +11,5 @@ jdk:
 install:
   - gradle assemble
 
-build:
+script:
   - gradle check
