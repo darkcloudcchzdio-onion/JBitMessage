@@ -105,4 +105,43 @@ public class ChunkedSecureObjectStorageTest {
         }});
         assertEquals(expected, storage.getAll("*", true));
     }
+
+    @Test public void testGetAllAtVersion() {
+        ChunkedSecureObjectStorage storage = new ChunkedSecureObjectStorage();
+        String category1 = "test1";
+        Object objectC1V0 = new Object();
+        Object objectC1V1 = new Object();
+        storage.put(category1, objectC1V0);
+        storage.put(category1, objectC1V1);
+        String category2 = "test2";
+        Object objectC2V0 = new Object();
+        Object objectC2V1 = new Object();
+        storage.put(category2, objectC2V0);
+        storage.put(category2, objectC2V1);
+        String category3 = "test3";
+        Object objectC3V0 = new Object();
+        Object objectC3V1 = new Object();
+        Object objectC3V2 = new Object();
+        storage.put(category3, objectC3V0);
+        storage.put(category3, objectC3V1);
+        storage.put(category3, objectC3V2);
+        Map<String, Map<Integer, Object>> expected = Collections.unmodifiableMap(new HashMap<String, Map<Integer, Object>>() {{
+            put(category1, Collections.unmodifiableMap(new HashMap<Integer, Object>(){{
+                put(1, objectC1V1);
+            }}));
+            put(category2, Collections.unmodifiableMap(new HashMap<Integer, Object>(){{
+                put(1, objectC2V1);
+            }}));
+            put(category3, Collections.unmodifiableMap(new HashMap<Integer, Object>(){{
+                put(1, objectC3V1);
+            }}));
+        }});
+        assertEquals(expected, storage.getAll("*", 1));
+        expected = Collections.unmodifiableMap(new HashMap<String, Map<Integer, Object>>() {{
+            put(category3, Collections.unmodifiableMap(new HashMap<Integer, Object>(){{
+                put(2, objectC3V2);
+            }}));
+        }});
+        assertEquals(expected, storage.getAll("*", 2));
+    }
 }

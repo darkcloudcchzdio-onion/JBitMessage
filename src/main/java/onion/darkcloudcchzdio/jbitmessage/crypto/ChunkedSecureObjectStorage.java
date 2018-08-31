@@ -29,7 +29,7 @@ public class ChunkedSecureObjectStorage {
     }
 
     public HashMap<String, HashMap<Integer, Object>> getAll(String searchPattern, int version) {
-        return getAll(searchPattern, -1, false);
+        return getAll(searchPattern, version, false);
     }
 
     public HashMap<String, HashMap<Integer, Object>> getAll(String searchPattern, int version, boolean hidden) {
@@ -39,6 +39,11 @@ public class ChunkedSecureObjectStorage {
                 HashMap<Integer, Object> versionToObject = nameToActiveObjects.get(name);
                 for (int v : versionToObject.keySet()) {
                     if (!hidden && nameToRemovedObjects.containsKey(name) && nameToRemovedObjects.get(name).contains(v)) continue;
+                    if (v == version) {
+                        if (!result.containsKey(name)) result.put(name, new HashMap<>());
+                        result.get(name).put(v, versionToObject.get(v));
+                        break;
+                    }
                     if (version < 0) {
                         if (!result.containsKey(name)) result.put(name, new HashMap<>());
                         result.get(name).put(v, versionToObject.get(v));
