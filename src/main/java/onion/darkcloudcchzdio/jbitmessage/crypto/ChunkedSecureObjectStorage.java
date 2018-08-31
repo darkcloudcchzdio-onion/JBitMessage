@@ -35,7 +35,7 @@ public class ChunkedSecureObjectStorage {
     public HashMap<String, HashMap<Integer, Object>> getAll(String searchPattern, int version, boolean hidden) {
         HashMap<String, HashMap<Integer, Object>> result = new HashMap<>();
         for (String name : nameToActiveObjects.keySet()) {
-            if (searchPattern == "*") {
+            if (searchPattern == "*" || name.matches(searchPattern)) {
                 HashMap<Integer, Object> versionToObject = nameToActiveObjects.get(name);
                 for (int v : versionToObject.keySet()) {
                     if (!hidden && nameToRemovedObjects.containsKey(name) && nameToRemovedObjects.get(name).contains(v)) continue;

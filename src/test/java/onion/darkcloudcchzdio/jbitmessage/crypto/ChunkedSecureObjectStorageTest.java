@@ -10,9 +10,6 @@ import static org.junit.Assert.*;
 
 public class ChunkedSecureObjectStorageTest {
 
-    // TODO: get(name, version, hidden = false)
-    // TODO: getAll(mask:String, ...)
-    // TODO: getAll(mask:RexExp, ...)
     @Test public void testGet(){
         ChunkedSecureObjectStorage storage = new ChunkedSecureObjectStorage();
         assertNull(storage.get("test"));
@@ -143,5 +140,30 @@ public class ChunkedSecureObjectStorageTest {
             }}));
         }});
         assertEquals(expected, storage.getAll("*", 2));
+    }
+
+    @Test public void testGetAllSearchPattern() {
+        ChunkedSecureObjectStorage storage = new ChunkedSecureObjectStorage();
+        String category1 = "test1";
+        Object objectC1V0 = new Object();
+        storage.put(category1, objectC1V0);
+        String category2 = "category2";
+        Object objectC2V0 = new Object();
+        storage.put(category2, objectC2V0);
+        String category3 = "test3";
+        Object objectC3V0 = new Object();
+        Object objectC3V1 = new Object();
+        storage.put(category3, objectC3V0);
+        storage.put(category3, objectC3V1);
+        Map<String, Map<Integer, Object>> expected = Collections.unmodifiableMap(new HashMap<String, Map<Integer, Object>>() {{
+            put(category1, Collections.unmodifiableMap(new HashMap<Integer, Object>(){{
+                put(0, objectC1V0);
+            }}));
+            put(category3, Collections.unmodifiableMap(new HashMap<Integer, Object>(){{
+                put(0, objectC3V0);
+                put(1, objectC3V1);
+            }}));
+        }});
+        assertEquals(expected, storage.getAll("^test.*"));
     }
 }
