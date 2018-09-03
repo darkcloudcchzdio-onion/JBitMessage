@@ -13,9 +13,8 @@ import static org.junit.Assert.*;
 public class ChunkedSecureObjectStorageTest {
 
     @Before
-    public void before() throws IOException {
-        File tmp = File.createTempFile("test", "test");
-        storage = new ChunkedSecureObjectStorage(new FileInputStream(tmp), new FileOutputStream(tmp));
+    public void before() {
+        storage = new ChunkedSecureObjectStorage(new ByteArrayOutputStream(1024));
     }
 
     private ChunkedSecureObjectStorage storage;
