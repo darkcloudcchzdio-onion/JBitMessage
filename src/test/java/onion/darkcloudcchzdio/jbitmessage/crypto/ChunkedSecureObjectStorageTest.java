@@ -2,21 +2,35 @@ package onion.darkcloudcchzdio.jbitmessage.crypto;
 
 import org.junit.Before;
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
 
-import java.io.*;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
 import static org.junit.Assert.*;
 
+@RunWith(Parameterized.class)
 public class ChunkedSecureObjectStorageTest {
+
+    @Parameterized.Parameters
+    public static EncryptionProvider[] data() {
+        return new EncryptionProvider[] {new EncryptionProvider(), new AESEncryptionProvider()};
+    }
+
+    public ChunkedSecureObjectStorageTest(EncryptionProvider encryptor) {
+        this.encryptor = encryptor;
+    }
 
     @Before
     public void before() {
-        storage = new ChunkedSecureObjectStorage(new ObjectSerializer(), new ObjectDeserializer(), new ByteArrayOutputStream(1024));
+        this.storage = new ChunkedSecureObjectStorage(encryptor, new ByteArrayOutputStream(1024));
     }
 
+    private EncryptionProvider encryptor;
     private ChunkedSecureObjectStorage storage;
 
     @Test public void testGet() throws IOException, ClassNotFoundException {

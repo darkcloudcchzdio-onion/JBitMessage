@@ -6,17 +6,15 @@ import java.util.HashSet;
 
 public class ChunkedSecureObjectStorage {
 
-    public ChunkedSecureObjectStorage(ObjectSerializer serializer, ObjectDeserializer deserializer, ByteArrayOutputStream output) {
-        this.serializer = serializer;
-        this.deserializer = deserializer;
+    public ChunkedSecureObjectStorage(EncryptionProvider encryptor, ByteArrayOutputStream output) {
+        this.encryptor = encryptor;
         this.output = output;
     }
 
     private final HashMap<String, HashMap<Integer, ChunkData>> nameToActiveObjects = new HashMap<>();
     private final HashMap<String, HashSet<Integer>> nameToRemovedObjects = new HashMap<>();
     private final ByteArrayOutputStream output;
-    private final ObjectSerializer serializer;
-    private final ObjectDeserializer deserializer;
+    private final EncryptionProvider encryptor;
     private int previousChunkPosition = 0;
 
     public Object get(String name) throws IOException, ClassNotFoundException {
@@ -30,7 +28,7 @@ public class ChunkedSecureObjectStorage {
         HashMap<Integer, ChunkData> versionToChunks = nameToActiveObjects.get(name);
         ChunkData chunk = versionToChunks.get(version);
         byte[] bytes = get(chunk);
-        return deserializer.deserialize(bytes);
+        return encryptor.deserialize(bytes);
     }
 
     public HashMap<String, HashMap<Integer, Object>> getAll(String searchPattern) throws IOException, ClassNotFoundException {
@@ -57,7 +55,7 @@ public class ChunkedSecureObjectStorage {
                         if (!result.containsKey(name)) result.put(name, new HashMap<>());
                         ChunkData chunk = versionToChunks.get(v);
                         byte[] bytes = get(chunk);
-                        Object object = deserializer.deserialize(bytes);
+                        Object object = encryptor.deserialize(bytes);
                         result.get(name).put(v, object);
                         break;
                     }
@@ -65,7 +63,7 @@ public class ChunkedSecureObjectStorage {
                         if (!result.containsKey(name)) result.put(name, new HashMap<>());
                         ChunkData chunk = versionToChunks.get(v);
                         byte[] bytes = get(chunk);
-                        Object object = deserializer.deserialize(bytes);
+                        Object object = encryptor.deserialize(bytes);
                         result.get(name).put(v, object);
                     }
                 }
@@ -76,7 +74,7 @@ public class ChunkedSecureObjectStorage {
 
     public void put(String name, Object object) throws IOException {
         if (!nameToActiveObjects.containsKey(name)) nameToActiveObjects.put(name, new HashMap<>());
-        byte[] bytes = serializer.serialize(object);
+        byte[] bytes = encryptor.serialize(object);
         output.write(bytes);
         HashMap<Integer, ChunkData> versionToChunks = nameToActiveObjects.get(name);
         versionToChunks.put(versionToChunks.size(), new ChunkData(previousChunkPosition, bytes.length));
