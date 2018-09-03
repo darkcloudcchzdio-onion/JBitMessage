@@ -1,52 +1,73 @@
 package onion.darkcloudcchzdio.jbitmessage.crypto;
 
+import java.io.*;
 import java.util.HashMap;
 import java.util.HashSet;
 
 public class ChunkedSecureObjectStorage {
 
-    final HashMap<String, HashMap<Integer, Object>> nameToActiveObjects = new HashMap<>();
-    final HashMap<String, HashSet<Integer>> nameToRemovedObjects = new HashMap<>();
+    public ChunkedSecureObjectStorage(InputStream in, OutputStream out) {
+        input = in;
+        output = out;
+    }
 
-    public Object get(String name) {
+    private final HashMap<String, HashMap<Integer, byte[]>> nameToActiveObjects = new HashMap<>();
+    private final HashMap<String, HashSet<Integer>> nameToRemovedObjects = new HashMap<>();
+    private InputStream input;
+    private OutputStream output;
+
+    public Object get(String name) throws IOException, ClassNotFoundException {
         return get(name, -1);
     }
 
-    public Object get(String name, int version) {
+    public Object get(String name, int version) throws IOException, ClassNotFoundException {
         if (!nameToActiveObjects.containsKey(name)) return null;
         version = normalizeVersion(name, version);
         if (nameToRemovedObjects.containsKey(name) && nameToRemovedObjects.get(name).contains(version)) return null;
-        HashMap<Integer, Object> versionToObject = nameToActiveObjects.get(name);
-        return versionToObject.get(version);
+        return getInternal(name, version);
     }
 
-    public HashMap<String, HashMap<Integer, Object>> getAll(String searchPattern) {
+    private Object getInternal(String name, int version) throws IOException, ClassNotFoundException {
+        HashMap<Integer, byte[]> versionToBytes = nameToActiveObjects.get(name);
+        byte[] bytes = versionToBytes.get(version);
+        try (ByteArrayInputStream bis = new ByteArrayInputStream(bytes)) {
+            ObjectInput in = new ObjectInputStream(bis);
+            Object result = in.readObject();
+            in.close();
+            return result;
+        }
+    }
+
+    public HashMap<String, HashMap<Integer, Object>> getAll(String searchPattern) throws IOException, ClassNotFoundException {
         return getAll(searchPattern, -1);
     }
 
-    public HashMap<String, HashMap<Integer, Object>> getAll(String searchPattern, boolean hidden) {
+    public HashMap<String, HashMap<Integer, Object>> getAll(String searchPattern, boolean hidden) throws IOException, ClassNotFoundException {
         return getAll(searchPattern, -1, hidden);
     }
 
-    public HashMap<String, HashMap<Integer, Object>> getAll(String searchPattern, int version) {
+    public HashMap<String, HashMap<Integer, Object>> getAll(String searchPattern, int version) throws IOException, ClassNotFoundException {
         return getAll(searchPattern, version, false);
     }
 
-    public HashMap<String, HashMap<Integer, Object>> getAll(String searchPattern, int version, boolean hidden) {
+    public HashMap<String, HashMap<Integer, Object>> getAll(String searchPattern, int version, boolean hidden) throws IOException, ClassNotFoundException {
+        boolean all = searchPattern == "*";
         HashMap<String, HashMap<Integer, Object>> result = new HashMap<>();
         for (String name : nameToActiveObjects.keySet()) {
-            if (searchPattern == "*" || name.matches(searchPattern)) {
-                HashMap<Integer, Object> versionToObject = nameToActiveObjects.get(name);
-                for (int v : versionToObject.keySet()) {
+            if (all || name.matches(searchPattern)) {
+                HashMap<Integer, byte[]> versionToBytes = nameToActiveObjects.get(name);
+                for (int v : versionToBytes.keySet()) {
                     if (!hidden && nameToRemovedObjects.containsKey(name) && nameToRemovedObjects.get(name).contains(v)) continue;
                     if (v == version) {
                         if (!result.containsKey(name)) result.put(name, new HashMap<>());
-                        result.get(name).put(v, versionToObject.get(v));
+                        Object object = getInternal(name, v);
+                        result.get(name).put(v, object);
                         break;
                     }
                     if (version < 0) {
                         if (!result.containsKey(name)) result.put(name, new HashMap<>());
-                        result.get(name).put(v, versionToObject.get(v));
+                        Object object = getInternal(name, v);
+                        result.get(name).put(v, object);
                     }
                 }
             }
@@ -54,10 +75,16 @@ public class ChunkedSecureObjectStorage {
         return result;
     }
 
-    public void put(String name, Object object) {
+    public void put(String name, Object object) throws IOException {
         if (!nameToActiveObjects.containsKey(name)) nameToActiveObjects.put(name, new HashMap<>());
-        HashMap<Integer, Object> versionToObject = nameToActiveObjects.get(name);
-        versionToObject.put(versionToObject.size(), object);
+        HashMap<Integer, byte[]> versionToObject = nameToActiveObjects.get(name);
+        try (ByteArrayOutputStream bos = new ByteArrayOutputStream()) {
+            ObjectOutput out = new ObjectOutputStream(bos);
+            out.writeObject(object);
+            out.flush();
+            byte[] bytes = bos.toByteArray();
+            versionToObject.put(versionToObject.size(), bytes);
+        }
     }
 
     public boolean remove(String name) {
@@ -72,9 +99,9 @@ public class ChunkedSecureObjectStorage {
         return versions.add(version);
     }
 
-    int normalizeVersion(String name, int version) {
-        HashMap<Integer, Object> versionToObject = nameToActiveObjects.get(name);
-        int size = versionToObject.size();
+    private int normalizeVersion(String name, int version) {
+        HashMap<Integer, byte[]> versionToBytes = nameToActiveObjects.get(name);
+        int size = versionToBytes.size();
         if (version >= size) version = size - 1;
         else if (version < 0) {
             if (version > -size) version %= size;
