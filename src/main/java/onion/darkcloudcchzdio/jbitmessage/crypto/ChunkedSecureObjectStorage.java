@@ -6,13 +6,17 @@ import java.util.HashSet;
 
 public class ChunkedSecureObjectStorage {
 
-    public ChunkedSecureObjectStorage(ByteArrayOutputStream out) {
-        output = out;
+    public ChunkedSecureObjectStorage(ObjectSerializer serializer, ObjectDeserializer deserializer, ByteArrayOutputStream output) {
+        this.serializer = serializer;
+        this.deserializer = deserializer;
+        this.output = output;
     }
 
     private final HashMap<String, HashMap<Integer, ChunkData>> nameToActiveObjects = new HashMap<>();
     private final HashMap<String, HashSet<Integer>> nameToRemovedObjects = new HashMap<>();
-    private ByteArrayOutputStream output;
+    private final ByteArrayOutputStream output;
+    private final ObjectSerializer serializer;
+    private final ObjectDeserializer deserializer;
     private int previousChunkPosition = 0;
 
     public Object get(String name) throws IOException, ClassNotFoundException {
@@ -26,7 +30,7 @@ public class ChunkedSecureObjectStorage {
         HashMap<Integer, ChunkData> versionToChunks = nameToActiveObjects.get(name);
         ChunkData chunk = versionToChunks.get(version);
         byte[] bytes = get(chunk);
-        return deserialize(bytes);
+        return deserializer.deserialize(bytes);
     }
 
     public HashMap<String, HashMap<Integer, Object>> getAll(String searchPattern) throws IOException, ClassNotFoundException {
@@ -53,7 +57,7 @@ public class ChunkedSecureObjectStorage {
                         if (!result.containsKey(name)) result.put(name, new HashMap<>());
                         ChunkData chunk = versionToChunks.get(v);
                         byte[] bytes = get(chunk);
-                        Object object = deserialize(bytes);
+                        Object object = deserializer.deserialize(bytes);
                         result.get(name).put(v, object);
                         break;
                     }
@@ -61,7 +65,7 @@ public class ChunkedSecureObjectStorage {
                         if (!result.containsKey(name)) result.put(name, new HashMap<>());
                         ChunkData chunk = versionToChunks.get(v);
                         byte[] bytes = get(chunk);
-                        Object object = deserialize(bytes);
+                        Object object = deserializer.deserialize(bytes);
                         result.get(name).put(v, object);
                     }
                 }
@@ -72,7 +76,7 @@ public class ChunkedSecureObjectStorage {
 
     public void put(String name, Object object) throws IOException {
         if (!nameToActiveObjects.containsKey(name)) nameToActiveObjects.put(name, new HashMap<>());
-        byte[] bytes = serialize(object);
+        byte[] bytes = serializer.serialize(object);
         output.write(bytes);
         HashMap<Integer, ChunkData> versionToChunks = nameToActiveObjects.get(name);
         versionToChunks.put(versionToChunks.size(), new ChunkData(previousChunkPosition, bytes.length));
@@ -108,24 +112,6 @@ public class ChunkedSecureObjectStorage {
             in.skip(data.position);
             in.read(bytes, 0, data.length);
             return bytes;
-        }
-    }
-
-    private Object deserialize(byte[] bytes) throws IOException, ClassNotFoundException {
-        try (ByteArrayInputStream bis = new ByteArrayInputStream(bytes)) {
-            ObjectInput in = new ObjectInputStream(bis);
-            Object result = in.readObject();
-            in.close();
-            return result;
-        }
-    }
-
-    private byte[] serialize(Object object) throws IOException {
-        try (ByteArrayOutputStream bos = new ByteArrayOutputStream()) {
-            ObjectOutput out = new ObjectOutputStream(bos);
-            out.writeObject(object);
-            out.flush();
-            return bos.toByteArray();
         }
     }
 }

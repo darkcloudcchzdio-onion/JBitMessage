@@ -14,7 +14,7 @@ public class ChunkedSecureObjectStorageTest {
 
     @Before
     public void before() {
-        storage = new ChunkedSecureObjectStorage(new ByteArrayOutputStream(1024));
+        storage = new ChunkedSecureObjectStorage(new ObjectSerializer(), new ObjectDeserializer(), new ByteArrayOutputStream(1024));
     }
 
     private ChunkedSecureObjectStorage storage;
