@@ -30,8 +30,11 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 
+import javax.crypto.KeyGenerator;
+import javax.crypto.SecretKey;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.security.NoSuchAlgorithmException;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -43,19 +46,27 @@ public class ChunkedSecureObjectStorageTest {
 
     @Parameterized.Parameters
     public static EncryptionProvider[] data() {
-        return new EncryptionProvider[] {new EncryptionProvider(), new AESEncryptionProvider()};
+        SecretKey secretKey = null;
+        try {
+            KeyGenerator generator = KeyGenerator.getInstance("AES");
+            generator.init(128); // 192 and 256 bits may not be available
+            secretKey = generator.generateKey();
+        } catch (NoSuchAlgorithmException e) {
+            e.printStackTrace();
+        }
+        return new EncryptionProvider[] {new EncryptionProvider(), new AESEncryptionProvider(secretKey)};
     }
 
-    public ChunkedSecureObjectStorageTest(EncryptionProvider encryptor) {
-        this.encryptor = encryptor;
+    public ChunkedSecureObjectStorageTest(EncryptionProvider encryptionProvider) {
+        this.encryptionProvider = encryptionProvider;
     }
 
     @Before
     public void before() {
-        this.storage = new ChunkedSecureObjectStorage(encryptor, new ByteArrayOutputStream(1024));
+        this.storage = new ChunkedSecureObjectStorage(encryptionProvider, new ByteArrayOutputStream(1024));
     }
 
-    private EncryptionProvider encryptor;
+    private EncryptionProvider encryptionProvider;
     private ChunkedSecureObjectStorage storage;
 
     @Test public void testGet() throws IOException, ClassNotFoundException {

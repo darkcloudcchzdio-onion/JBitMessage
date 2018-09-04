@@ -39,7 +39,7 @@ public class ChunkedSecureObjectContainerStorageTest {
         assertNull(container.get("test"));
     }
 
-    @Test public void testPutGet() throws Exception {
+    @Test public void testPutGet() {
         ChunkedSecureObjectContainerStorage container = new ChunkedSecureObjectContainerStorage();
         container.put("container", container);
         assertEquals(container, container.get("container"));
@@ -48,7 +48,7 @@ public class ChunkedSecureObjectContainerStorageTest {
         assertEquals(storage, container.get("test"));
     }
 
-    @Test public void testRemove() throws Exception {
+    @Test public void testRemove() {
         ChunkedSecureObjectContainerStorage container = new ChunkedSecureObjectContainerStorage();
         container.put("container", container);
         assertTrue(container.remove("container"));

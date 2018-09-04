@@ -31,17 +31,12 @@ import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 
 public class AESEncryptionProvider extends EncryptionProvider {
-    public AESEncryptionProvider() {
-        try {
-            KeyGenerator kgen = KeyGenerator.getInstance("AES");
-            kgen.init(128); // 192 and 256 bits may not be available
-            secretKey = kgen.generateKey();
-        } catch (NoSuchAlgorithmException e) {
-            e.printStackTrace();
-        }
+
+    public AESEncryptionProvider(SecretKey secretKey) {
+        this.secretKey = secretKey;
     }
 
-    private SecretKey secretKey;
+    private final SecretKey secretKey;
 
     @Override
     public byte[] serialize(Object object) throws IOException {
