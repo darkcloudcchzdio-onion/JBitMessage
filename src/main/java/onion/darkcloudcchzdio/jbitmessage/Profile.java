@@ -43,15 +43,12 @@ public class Profile {
     }
 
     public Profile(String name) {
-        this.name = name;
         if (!new File(name).exists()) {
             createProfile(name);
         }
         loadProfile(name);
-        createJournal();
     }
 
-    private final String name;
     private SecretKey secret;
     private EncryptionProvider encryptionProvider;
 
@@ -98,9 +95,5 @@ public class Profile {
             e.printStackTrace();
         }
         System.out.println("Profile is loaded");
-    }
-
-    private void createJournal() {
-
     }
 }
