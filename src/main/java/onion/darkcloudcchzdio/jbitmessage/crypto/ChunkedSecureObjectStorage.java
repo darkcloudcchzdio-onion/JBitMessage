@@ -57,11 +57,13 @@ public class ChunkedSecureObjectStorage implements IObjectStorage<Object> {
         if (nameToRemovedObjects.containsKey(key) && nameToRemovedObjects.get(key).contains(version)) return null;
         Map<Integer, ChunkData> versionToChunks = nameToActiveObjects.get(key);
         ChunkData chunkData = versionToChunks.get(version);
+        return get(chunkData);
+    }
 
-        byte[] chunk = read(chunkData);
-        byte[] data = getData(chunk);
-
-        return encryptor.deserialize(data);
+    private Object get(ChunkData data) throws IOException, ClassNotFoundException {
+        byte[] chunk = read(data);
+        byte[] bytes = getData(chunk);
+        return encryptor.deserialize(bytes);
     }
 
     public Map<String, Map<Integer, Object>> getAll(String searchPattern) throws IOException, ClassNotFoundException {
@@ -87,16 +89,12 @@ public class ChunkedSecureObjectStorage implements IObjectStorage<Object> {
                     if (version < 0) {
                         if (!result.containsKey(name)) result.put(name, new HashMap<>());
                         ChunkData chunkData = versionToChunks.get(v);
-                        byte[] chunk = read(chunkData);
-                        byte[] data = getData(chunk);
-                        Object object = encryptor.deserialize(data);
+                        Object object = get(chunkData);
                         result.get(name).put(v, object);
                     } else if (v == version) {
                         if (!result.containsKey(name)) result.put(name, new HashMap<>());
                         ChunkData chunkData = versionToChunks.get(v);
-                        byte[] chunk = read(chunkData);
-                        byte[] data = getData(chunk);
-                        Object object = encryptor.deserialize(data);
+                        Object object = get(chunkData);
                         result.get(name).put(v, object);
                         break;
                     }
