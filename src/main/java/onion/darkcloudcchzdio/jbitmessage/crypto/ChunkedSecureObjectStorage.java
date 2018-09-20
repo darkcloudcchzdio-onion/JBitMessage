@@ -47,7 +47,7 @@ public class ChunkedSecureObjectStorage implements IObjectStorage<Object> {
     private final Map<String, Set<Integer>> nameToRemovedObjects = new HashMap<>();
     private int previousChunkPosition = 0;
 
-    protected void deserialize(byte[] data) {
+    void deserialize(byte[] data) {
         ByteBuffer buffer = ByteBuffer.wrap(data);
         int chunkLength = buffer.getInt(0);
         byte[] bytes = new byte[chunkLength];
@@ -128,7 +128,7 @@ public class ChunkedSecureObjectStorage implements IObjectStorage<Object> {
         write(bytes);
     }
 
-    protected void put(String key, byte[] bytes) {
+    private void put(String key, byte[] bytes) {
         if (!nameToActiveObjects.containsKey(key)) nameToActiveObjects.put(key, new HashMap<>());
         Map<Integer, ChunkData> versionToChunks = nameToActiveObjects.get(key);
         versionToChunks.put(versionToChunks.size(), new ChunkData(previousChunkPosition, bytes.length));
