@@ -36,6 +36,16 @@ import java.util.Set;
 
 public class ChunkedSecureObjectStorage implements IObjectStorage<Object> {
 
+    private static byte[] getData(byte[] chunk) {
+        ByteBuffer buffer = ByteBuffer.wrap(chunk);
+        int chunkLength = buffer.getInt();
+        int nameLength = buffer.getInt();
+        buffer.get(new byte[nameLength]);
+        byte[] data = new byte[chunk.length - (4 + 4 + nameLength)];
+        buffer.get(data);
+        return data;
+    }
+
     public ChunkedSecureObjectStorage(EncryptionProvider encryptor, ByteArrayOutputStream output) {
         this.encryptor = encryptor;
         this.output = output;
@@ -117,7 +127,7 @@ public class ChunkedSecureObjectStorage implements IObjectStorage<Object> {
         versionToChunks.put(versionToChunks.size(), new ChunkData(previousChunkPosition, bytes.length));
         previousChunkPosition += bytes.length;
 
-        output.write(bytes);
+        write(bytes);
     }
 
     public boolean remove(String key) {
@@ -143,6 +153,10 @@ public class ChunkedSecureObjectStorage implements IObjectStorage<Object> {
         return version;
     }
 
+    private void write(byte[] bytes) throws IOException {
+        output.write(bytes);
+    }
+
     private byte[] read(ChunkData data) throws IOException {
         byte[] bytes = new byte[data.length];
         try (ByteArrayInputStream in = new ByteArrayInputStream((output).toByteArray())) {
@@ -150,16 +164,6 @@ public class ChunkedSecureObjectStorage implements IObjectStorage<Object> {
             in.read(bytes, 0, data.length);
             return bytes;
         }
-    }
-
-    private byte[] getData(byte[] chunk) {
-        ByteBuffer buffer = ByteBuffer.wrap(chunk);
-        int chunkLength = buffer.getInt();
-        int nameLength = buffer.getInt();
-        buffer.get(new byte[nameLength]);
-        byte[] data = new byte[chunk.length - (4 + 4 + nameLength)];
-        buffer.get(data);
-        return data;
     }
 }
 

@@ -87,9 +87,9 @@ public class Profile {
         try {
             file.createNewFile();
             byte[] bytes = encryptionProvider.serialize(name);
-            FileOutputStream out = new FileOutputStream(file);
-            out.write(bytes);
-            out.close();
+            try (FileOutputStream out = new FileOutputStream(file)) {
+                out.write(bytes);
+            }
         } catch (IOException e) {
             e.printStackTrace();
         }
