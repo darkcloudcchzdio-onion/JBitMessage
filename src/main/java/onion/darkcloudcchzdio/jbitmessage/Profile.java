@@ -26,6 +26,7 @@
 package onion.darkcloudcchzdio.jbitmessage;
 
 import onion.darkcloudcchzdio.jbitmessage.crypto.AESEncryptionProvider;
+import onion.darkcloudcchzdio.jbitmessage.crypto.ChunkedSecureHardDriveStorage;
 import onion.darkcloudcchzdio.jbitmessage.crypto.EncryptionProvider;
 
 import javax.crypto.SecretKey;
@@ -76,20 +77,17 @@ public class Profile {
 
     private SecretKey secret;
     private EncryptionProvider encryptionProvider;
+    private ChunkedSecureHardDriveStorage storage;
 
     private void createProfile(String name) {
         System.out.println("Profile " + name + " not found");
         System.out.println("Create profile: " + name);
         String password = readPassword();
         secret = generateSecret(password);
-        encryptionProvider = new AESEncryptionProvider(secret);
         File file  = new File(name);
         try {
             file.createNewFile();
-            byte[] bytes = encryptionProvider.serialize(name);
-            try (FileOutputStream out = new FileOutputStream(file)) {
-                out.write(bytes);
-            }
+            new ChunkedSecureHardDriveStorage(file, new AESEncryptionProvider(secret)).put("PROFILE:CREATE", name);
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -103,14 +101,12 @@ public class Profile {
             loadProfile(name);
             return;
         }
-        if (encryptionProvider == null) {
-            encryptionProvider = new AESEncryptionProvider(secret);
-        }
         System.out.println("Load profile: " + name);
         File file = new File(name);
+        encryptionProvider = new AESEncryptionProvider(secret);
+        storage = new ChunkedSecureHardDriveStorage(file, encryptionProvider);
         try {
-            byte[] bytes = Files.readAllBytes(file.getAbsoluteFile().toPath());
-            String data = (String) encryptionProvider.deserialize(bytes);
+            String data = (String) storage.get("PROFILE:CREATE");
             if (!data.equals(name)) {
                 System.out.println("Incorrect password. Try again");
                 loadProfile(name);

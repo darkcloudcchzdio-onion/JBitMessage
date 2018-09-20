@@ -36,25 +36,15 @@ import java.util.Set;
 
 public class ChunkedSecureObjectStorage implements IObjectStorage<Object> {
 
-    private static byte[] getData(byte[] chunk) {
-        ByteBuffer buffer = ByteBuffer.wrap(chunk);
-        int chunkLength = buffer.getInt();
-        int nameLength = buffer.getInt();
-        buffer.get(new byte[nameLength]);
-        byte[] data = new byte[chunk.length - (4 + 4 + nameLength)];
-        buffer.get(data);
-        return data;
-    }
-
-    public ChunkedSecureObjectStorage(EncryptionProvider encryptor, ByteArrayOutputStream output) {
-        this.encryptor = encryptor;
+    public ChunkedSecureObjectStorage(EncryptionProvider encryptionProvider, ByteArrayOutputStream output) {
+        this.encryptionProvider = encryptionProvider;
         this.output = output;
     }
 
+    protected final EncryptionProvider encryptionProvider;
+    private final ByteArrayOutputStream output;
     private final Map<String, Map<Integer, ChunkData>> nameToActiveObjects = new HashMap<>();
     private final Map<String, Set<Integer>> nameToRemovedObjects = new HashMap<>();
-    private final ByteArrayOutputStream output;
-    private final EncryptionProvider encryptor;
     private int previousChunkPosition = 0;
 
     public Object get(String key) throws IOException, ClassNotFoundException {
@@ -72,8 +62,8 @@ public class ChunkedSecureObjectStorage implements IObjectStorage<Object> {
 
     private Object get(ChunkData data) throws IOException, ClassNotFoundException {
         byte[] chunk = read(data);
-        byte[] bytes = getData(chunk);
-        return encryptor.deserialize(bytes);
+        byte[] bytes = new Chunk(chunk).data;
+        return encryptionProvider.deserialize(bytes);
     }
 
     public Map<String, Map<Integer, Object>> getAll(String searchPattern) throws IOException, ClassNotFoundException {
@@ -115,19 +105,20 @@ public class ChunkedSecureObjectStorage implements IObjectStorage<Object> {
     }
 
     public void put(String key, Object value) throws IOException {
-        if (!nameToActiveObjects.containsKey(key)) nameToActiveObjects.put(key, new HashMap<>());
-
-        byte[] name = encryptor.serialize(key);
+        byte[] name = encryptionProvider.serialize(key);
         byte[] nameLength = ByteBuffer.allocate(4).putInt(name.length).array();
-        byte[] data = encryptor.serialize(value);
+        byte[] data = encryptionProvider.serialize(value);
         byte[] chunkLength = ByteBuffer.allocate(4).putInt(4 + 4 + name.length + data.length).array();
         byte[] bytes = Bytes.concat(chunkLength, nameLength, name, data);
+        put(key, bytes);
+        write(bytes);
+    }
 
+    protected void put(String key, byte[] bytes) {
+        if (!nameToActiveObjects.containsKey(key)) nameToActiveObjects.put(key, new HashMap<>());
         Map<Integer, ChunkData> versionToChunks = nameToActiveObjects.get(key);
         versionToChunks.put(versionToChunks.size(), new ChunkData(previousChunkPosition, bytes.length));
         previousChunkPosition += bytes.length;
-
-        write(bytes);
     }
 
     public boolean remove(String key) {
@@ -153,14 +144,14 @@ public class ChunkedSecureObjectStorage implements IObjectStorage<Object> {
         return version;
     }
 
-    private void write(byte[] bytes) throws IOException {
+    protected void write(byte[] bytes) throws IOException {
         output.write(bytes);
     }
 
-    private byte[] read(ChunkData data) throws IOException {
+    protected byte[] read(ChunkData data) throws IOException {
         byte[] bytes = new byte[data.length];
         try (ByteArrayInputStream in = new ByteArrayInputStream((output).toByteArray())) {
-            in.skip(data.position);
+            in.skip(data.offset);
             in.read(bytes, 0, data.length);
             return bytes;
         }
@@ -169,10 +160,28 @@ public class ChunkedSecureObjectStorage implements IObjectStorage<Object> {
 
 class ChunkData {
     ChunkData(int position, int length) {
-        this.position = position;
+        this.offset = position;
         this.length = length;
     }
 
-    int position;
+    int offset;
     int length;
+}
+
+class Chunk {
+
+    Chunk(byte[] chunk) {
+        ByteBuffer buffer = ByteBuffer.wrap(chunk);
+        chunkLength = buffer.getInt();
+        nameLength = buffer.getInt();
+        name = new byte[nameLength];
+        buffer.get(name);
+        data = new byte[chunk.length - (4 + 4 + nameLength)];
+        buffer.get(data);
+    }
+
+    final int nameLength;
+    final byte[] name;
+    final int chunkLength;
+    final byte[] data;
 }
