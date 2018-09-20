@@ -25,7 +25,10 @@
  *******************************************************************************/
 package onion.darkcloudcchzdio.jbitmessage.crypto;
 
+import com.google.common.primitives.Bytes;
+
 import java.io.*;
+import java.nio.ByteBuffer;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -44,18 +47,21 @@ public class ChunkedSecureObjectStorage implements IObjectStorage<Object> {
     private final EncryptionProvider encryptor;
     private int previousChunkPosition = 0;
 
-    public Object get(String name) throws IOException, ClassNotFoundException {
-        return get(name, -1);
+    public Object get(String key) throws IOException, ClassNotFoundException {
+        return get(key, -1);
     }
 
-    public Object get(String name, int version) throws IOException, ClassNotFoundException {
-        if (!nameToActiveObjects.containsKey(name)) return null;
-        version = normalizeVersion(name, version);
-        if (nameToRemovedObjects.containsKey(name) && nameToRemovedObjects.get(name).contains(version)) return null;
-        Map<Integer, ChunkData> versionToChunks = nameToActiveObjects.get(name);
-        ChunkData chunk = versionToChunks.get(version);
-        byte[] bytes = get(chunk);
-        return encryptor.deserialize(bytes);
+    public Object get(String key, int version) throws IOException, ClassNotFoundException {
+        if (!nameToActiveObjects.containsKey(key)) return null;
+        version = normalizeVersion(key, version);
+        if (nameToRemovedObjects.containsKey(key) && nameToRemovedObjects.get(key).contains(version)) return null;
+        Map<Integer, ChunkData> versionToChunks = nameToActiveObjects.get(key);
+        ChunkData chunkData = versionToChunks.get(version);
+
+        byte[] chunk = read(chunkData);
+        byte[] data = getData(chunk);
+
+        return encryptor.deserialize(data);
     }
 
     public Map<String, Map<Integer, Object>> getAll(String searchPattern) throws IOException, ClassNotFoundException {
@@ -78,20 +84,21 @@ public class ChunkedSecureObjectStorage implements IObjectStorage<Object> {
                 Map<Integer, ChunkData> versionToChunks = nameToActiveObjects.get(name);
                 for (int v : versionToChunks.keySet()) {
                     if (!hidden && nameToRemovedObjects.containsKey(name) && nameToRemovedObjects.get(name).contains(v)) continue;
-                    if (v == version) {
-                        if (!result.containsKey(name)) result.put(name, new HashMap<>());
-                        ChunkData chunk = versionToChunks.get(v);
-                        byte[] bytes = get(chunk);
-                        Object object = encryptor.deserialize(bytes);
-                        result.get(name).put(v, object);
-                        break;
-                    }
                     if (version < 0) {
                         if (!result.containsKey(name)) result.put(name, new HashMap<>());
-                        ChunkData chunk = versionToChunks.get(v);
-                        byte[] bytes = get(chunk);
-                        Object object = encryptor.deserialize(bytes);
+                        ChunkData chunkData = versionToChunks.get(v);
+                        byte[] chunk = read(chunkData);
+                        byte[] data = getData(chunk);
+                        Object object = encryptor.deserialize(data);
                         result.get(name).put(v, object);
+                    } else if (v == version) {
+                        if (!result.containsKey(name)) result.put(name, new HashMap<>());
+                        ChunkData chunkData = versionToChunks.get(v);
+                        byte[] chunk = read(chunkData);
+                        byte[] data = getData(chunk);
+                        Object object = encryptor.deserialize(data);
+                        result.get(name).put(v, object);
+                        break;
                     }
                 }
             }
@@ -99,29 +106,36 @@ public class ChunkedSecureObjectStorage implements IObjectStorage<Object> {
         return result;
     }
 
-    public void put(String name, Object object) throws IOException {
-        if (!nameToActiveObjects.containsKey(name)) nameToActiveObjects.put(name, new HashMap<>());
-        byte[] bytes = encryptor.serialize(object);
-        output.write(bytes);
-        Map<Integer, ChunkData> versionToChunks = nameToActiveObjects.get(name);
+    public void put(String key, Object value) throws IOException {
+        if (!nameToActiveObjects.containsKey(key)) nameToActiveObjects.put(key, new HashMap<>());
+
+        byte[] name = encryptor.serialize(key);
+        byte[] nameLength = ByteBuffer.allocate(4).putInt(name.length).array();
+        byte[] data = encryptor.serialize(value);
+        byte[] chunkLength = ByteBuffer.allocate(4).putInt(4 + 4 + name.length + data.length).array();
+        byte[] bytes = Bytes.concat(chunkLength, nameLength, name, data);
+
+        Map<Integer, ChunkData> versionToChunks = nameToActiveObjects.get(key);
         versionToChunks.put(versionToChunks.size(), new ChunkData(previousChunkPosition, bytes.length));
         previousChunkPosition += bytes.length;
+
+        output.write(bytes);
     }
 
-    public boolean remove(String name) {
-        return remove(name, -1);
+    public boolean remove(String key) {
+        return remove(key, -1);
     }
 
-    public boolean remove(String name, int version) {
-        if (!nameToActiveObjects.containsKey(name)) return false;
-        version = normalizeVersion(name, version);
-        if (!nameToRemovedObjects.containsKey(name)) nameToRemovedObjects.put(name, new HashSet<>());
-        Set<Integer> versions = nameToRemovedObjects.get(name);
+    public boolean remove(String key, int version) {
+        if (!nameToActiveObjects.containsKey(key)) return false;
+        version = normalizeVersion(key, version);
+        if (!nameToRemovedObjects.containsKey(key)) nameToRemovedObjects.put(key, new HashSet<>());
+        Set<Integer> versions = nameToRemovedObjects.get(key);
         return versions.add(version);
     }
 
-    private int normalizeVersion(String name, int version) {
-        Map<Integer, ?> versionToBytes = nameToActiveObjects.get(name);
+    private int normalizeVersion(String key, int version) {
+        Map<Integer, ?> versionToBytes = nameToActiveObjects.get(key);
         int size = versionToBytes.size();
         if (version >= size) version = size - 1;
         else if (version < 0) {
@@ -131,13 +145,23 @@ public class ChunkedSecureObjectStorage implements IObjectStorage<Object> {
         return version;
     }
 
-    private byte[] get(ChunkData data) throws IOException {
+    private byte[] read(ChunkData data) throws IOException {
         byte[] bytes = new byte[data.length];
         try (ByteArrayInputStream in = new ByteArrayInputStream((output).toByteArray())) {
             in.skip(data.position);
             in.read(bytes, 0, data.length);
             return bytes;
         }
+    }
+
+    private byte[] getData(byte[] chunk) {
+        ByteBuffer buffer = ByteBuffer.wrap(chunk);
+        int chunkLength = buffer.getInt();
+        int nameLength = buffer.getInt();
+        buffer.get(new byte[nameLength]);
+        byte[] data = new byte[chunk.length - (4 + 4 + nameLength)];
+        buffer.get(data);
+        return data;
     }
 }
 
