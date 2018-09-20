@@ -9,6 +9,7 @@ public class App {
     }
 
     public static void main(String[] args) {
-        System.out.println(new App().getGreeting());
+        System.out.println("App starting");
+        Profile profile = new Profile("test");
     }
 }
