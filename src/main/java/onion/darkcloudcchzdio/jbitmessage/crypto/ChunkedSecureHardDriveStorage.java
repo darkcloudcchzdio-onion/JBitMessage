@@ -29,7 +29,6 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.nio.ByteBuffer;
 import java.nio.file.Files;
 
 public class ChunkedSecureHardDriveStorage extends ChunkedSecureObjectStorage {
@@ -44,15 +43,9 @@ public class ChunkedSecureHardDriveStorage extends ChunkedSecureObjectStorage {
 
     private void deserialize(File file) {
         try {
-            byte[] allBytes = Files.readAllBytes(file.getAbsoluteFile().toPath());
-            ByteBuffer buffer = ByteBuffer.wrap(allBytes);
-            int chunkLength = buffer.getInt(0);
-            byte[] bytes = new byte[chunkLength];
-            buffer.get(bytes);
-            Chunk chunk = new Chunk(bytes);
-            String key = (String) encryptionProvider.deserialize(chunk.name);
-            put(key, bytes);
-        } catch (IOException | ClassNotFoundException e) {
+            byte[] bytes = Files.readAllBytes(file.getAbsoluteFile().toPath());
+            deserialize(bytes);
+        } catch (IOException e) {
             e.printStackTrace();
         }
     }

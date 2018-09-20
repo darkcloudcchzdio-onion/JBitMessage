@@ -27,12 +27,13 @@ package onion.darkcloudcchzdio.jbitmessage;
 
 import onion.darkcloudcchzdio.jbitmessage.crypto.AESEncryptionProvider;
 import onion.darkcloudcchzdio.jbitmessage.crypto.ChunkedSecureHardDriveStorage;
-import onion.darkcloudcchzdio.jbitmessage.crypto.EncryptionProvider;
 
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
-import java.io.*;
-import java.nio.file.Files;
+import java.io.Console;
+import java.io.File;
+import java.io.IOException;
+import java.io.UnsupportedEncodingException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 
@@ -76,7 +77,6 @@ public class Profile {
     }
 
     private SecretKey secret;
-    private EncryptionProvider encryptionProvider;
     private ChunkedSecureHardDriveStorage storage;
 
     private void createProfile(String name) {
@@ -103,8 +103,7 @@ public class Profile {
         }
         System.out.println("Load profile: " + name);
         File file = new File(name);
-        encryptionProvider = new AESEncryptionProvider(secret);
-        storage = new ChunkedSecureHardDriveStorage(file, encryptionProvider);
+        storage = new ChunkedSecureHardDriveStorage(file, new AESEncryptionProvider(secret));
         try {
             String data = (String) storage.get("PROFILE:CREATE");
             if (!data.equals(name)) {

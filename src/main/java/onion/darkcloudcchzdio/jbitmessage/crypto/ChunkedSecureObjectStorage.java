@@ -41,11 +41,25 @@ public class ChunkedSecureObjectStorage implements IObjectStorage<Object> {
         this.output = output;
     }
 
-    protected final EncryptionProvider encryptionProvider;
+    private final EncryptionProvider encryptionProvider;
     private final ByteArrayOutputStream output;
     private final Map<String, Map<Integer, ChunkData>> nameToActiveObjects = new HashMap<>();
     private final Map<String, Set<Integer>> nameToRemovedObjects = new HashMap<>();
     private int previousChunkPosition = 0;
+
+    protected void deserialize(byte[] data) {
+        ByteBuffer buffer = ByteBuffer.wrap(data);
+        int chunkLength = buffer.getInt(0);
+        byte[] bytes = new byte[chunkLength];
+        buffer.get(bytes);
+        Chunk chunk = new Chunk(bytes);
+        try {
+            String key = (String) encryptionProvider.deserialize(chunk.name);
+            put(key, bytes);
+        } catch (IOException | ClassNotFoundException e) {
+            e.printStackTrace();
+        }
+    }
 
     public Object get(String key) throws IOException, ClassNotFoundException {
         return get(key, -1);
